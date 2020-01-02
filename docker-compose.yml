@@ -1,29 +1,23 @@
 version: '3'
 
 services:
-#  database:
-#    image: mongo
-#    logging:
-#      driver: none
-#  database_seeder:
-#    build:
-#      context: .
-#      dockerfile: Dockerfile-mongoseeder
-#    logging:
-#      driver: none
-#    depends_on:
-#    - database
-#  database-ui:
-#    image: mongo-express
-#    logging:
-#      driver: none
-#    environment:
-#      ME_CONFIG_MONGODB_SERVER: database
-#    ports:
-#    - 15001:8081
+  database:
+    image: mongo
+    logging:
+      driver: none
+  database-ui:
+    image: mongo-express
+    logging:
+      driver: none
+    environment:
+      ME_CONFIG_MONGODB_SERVER: database
+    ports:
+    - 15001:8081
   api:
     build:
       context: .
     restart: unless-stopped
+    environment:
+      MONGO_URI: mongodb://database
     ports:
     - 15000:8080
