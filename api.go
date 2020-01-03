@@ -50,7 +50,16 @@ func main() {
 
 	svr.GET("/quotes", getQuotesHandler(dbClient))
 
-	svr.Use(middleware.CORS())
+	// Setup CORS
+
+	corsConfig := middleware.CORSConfig{
+		Skipper:       middleware.DefaultSkipper,
+		AllowOrigins:  []string{"*"},
+		AllowMethods:  []string{http.MethodGet},
+		ExposeHeaders: []string{paginationPageHeader, paginationSizeHeader, paginationCountHeader},
+	}
+
+	svr.Use(middleware.CORSWithConfig(corsConfig))
 
 	log.Fatal(svr.Start(":8080"))
 }
