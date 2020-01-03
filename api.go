@@ -12,7 +12,16 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/readpref"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
+)
+
+const (
+	paginationPageHeader     = "X-Pagination-Page"
+	paginationSizeHeader     = "X-Pagination-Size"
+	paginationCountHeader    = "X-Pagination-Count"
+	paginationPageQueryParam = "pagination-page"
+	paginationSizeQueryParam = "pagination-size"
 )
 
 type QuoteDto struct {
@@ -48,12 +57,42 @@ func main() {
 
 func getQuotesHandler(client *mongo.Client) echo.HandlerFunc {
 	return func(c echo.Context) error {
+		// Acquire database collection + context
 		collection := client.Database("quotes").Collection("quotes")
 		ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
 
+		// Acquire pagination result
+		paginationPage, err := strconv.Atoi(c.QueryParam(paginationPageQueryParam))
+		if err != nil {
+			paginationPage = 1
+		}
+		paginationSize, err := strconv.Atoi(c.QueryParam(paginationSizeQueryParam))
+		if err != nil {
+			paginationSize = 50
+		}
+
 		var quotes []QuoteEntity
 
-		cur, err := collection.Find(ctx, bson.M{})
+		// Set pagination options
+		var opts options.FindOptions
+		index := int64((paginationPage - 1) * paginationSize)
+		limit := int64(paginationSize)
+		opts.Skip = &index
+		opts.Limit = &limit
+
+		// Count number of documents
+		count, err := collection.CountDocuments(ctx, bson.M{}, nil)
+		if err != nil {
+			c.Logger().Errorf("Error while querying database")
+			return c.NoContent(http.StatusInternalServerError)
+		}
+
+		// Update pagination headers
+		c.Response().Header().Set(paginationPageHeader, strconv.Itoa(paginationPage))
+		c.Response().Header().Set(paginationSizeHeader, strconv.Itoa(paginationSize))
+		c.Response().Header().Set(paginationCountHeader, strconv.FormatInt(count, 10))
+
+		cur, err := collection.Find(ctx, bson.M{}, &opts)
 		if err != nil {
 			c.Logger().Errorf("Error while querying database")
 			return c.NoContent(http.StatusInternalServerError)
