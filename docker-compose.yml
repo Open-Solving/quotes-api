@@ -19,5 +19,6 @@ services:
     restart: unless-stopped
     environment:
       MONGO_URI: mongodb://database
+      AUTHORIZATION_KEY: test
     ports:
     - 15000:8080

@@ -25,6 +25,8 @@ const (
 
 	defaultPaginationSize = 50
 	maxPaginationSize     = 100
+
+	authorizationHeader = "Authorization"
 )
 
 type QuoteDto struct {
@@ -42,6 +44,9 @@ type QuoteEntity struct {
 func main() {
 	svr := echo.New()
 
+	// Setup custom logger
+	svr.Logger = createLogger()
+
 	dbCtx, _ := context.WithTimeout(context.Background(), 2*time.Second)
 	dbClient, err := mongo.Connect(dbCtx, options.Client().ApplyURI(os.Getenv("MONGO_URI")))
 	if err != nil {
@@ -52,9 +57,9 @@ func main() {
 	}
 
 	svr.GET("/quotes", getQuotesHandler(dbClient))
+	svr.POST("/quotes", addQuoteHandler(dbClient))
 
 	// Setup CORS
-
 	corsConfig := middleware.CORSConfig{
 		Skipper:       middleware.DefaultSkipper,
 		AllowOrigins:  []string{"*"},
@@ -64,7 +69,15 @@ func main() {
 
 	svr.Use(middleware.CORSWithConfig(corsConfig))
 
-	log.Fatal(svr.Start(":8080"))
+	svr.Logger.Fatal(svr.Start(":8080"))
+}
+
+// Create custom configured handler
+func createLogger() *log.Logger {
+	logger := log.New("quotes-api")
+	logger.SetLevel(log.DEBUG)
+	logger.SetHeader("${time_rfc3339} ${level} - [${prefix}] ${short_file}:${line}")
+	return logger
 }
 
 func getQuotesHandler(client *mongo.Client) echo.HandlerFunc {
@@ -127,5 +140,47 @@ func getQuotesHandler(client *mongo.Client) echo.HandlerFunc {
 		}
 
 		return c.JSON(http.StatusOK, quoteDtos)
+	}
+}
+
+func addQuoteHandler(client *mongo.Client) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		// make sure request is authorized
+		if c.Request().Header.Get(authorizationHeader) != os.Getenv("AUTHORIZATION_KEY") {
+			c.Logger().Warnf("Missing authorization key")
+			return c.NoContent(http.StatusUnauthorized)
+		}
+
+		// Decode body
+		var quote QuoteDto
+		if err := c.Bind(&quote); err != nil {
+			c.Logger().Warnf("Error while decoding json body: %s", err)
+			return c.NoContent(http.StatusUnprocessableEntity)
+		}
+
+		// Acquire database collection + context
+		collection := client.Database("quotes").Collection("quotes")
+		ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+
+		// Insert quote
+		res, err := collection.InsertOne(ctx, QuoteEntity{
+			Id:     primitive.NewObjectID(),
+			Text:   quote.Text,
+			Source: quote.Source,
+		})
+
+		if err != nil {
+			c.Logger().Errorf("Error while creating quote: %s", err)
+			return c.NoContent(http.StatusInternalServerError)
+		}
+
+		quoteId := res.InsertedID.(primitive.ObjectID)
+
+		c.Logger().Infof("New quote %s has been created", quoteId.Hex())
+
+		// Return create quote
+		quote.Id = quoteId.Hex()
+
+		return c.JSON(http.StatusCreated, quote)
 	}
 }
