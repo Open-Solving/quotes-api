@@ -22,6 +22,9 @@ const (
 	paginationCountHeader    = "X-Pagination-Count"
 	paginationPageQueryParam = "pagination-page"
 	paginationSizeQueryParam = "pagination-size"
+
+	defaultPaginationSize = 50
+	maxPaginationSize     = 100
 )
 
 type QuoteDto struct {
@@ -77,7 +80,11 @@ func getQuotesHandler(client *mongo.Client) echo.HandlerFunc {
 		}
 		paginationSize, err := strconv.Atoi(c.QueryParam(paginationSizeQueryParam))
 		if err != nil {
-			paginationSize = 50
+			paginationSize = defaultPaginationSize
+		}
+		// Prevent too much results from being returned
+		if paginationSize > maxPaginationSize {
+			paginationSize = maxPaginationSize
 		}
 
 		var quotes []QuoteEntity
