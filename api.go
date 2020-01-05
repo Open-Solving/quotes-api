@@ -58,6 +58,7 @@ func main() {
 
 	svr.GET("/quotes", getQuotesHandler(dbClient))
 	svr.POST("/quotes", addQuoteHandler(dbClient))
+	svr.PUT("/quotes", setQuotesHandler(dbClient))
 
 	// Setup CORS
 	corsConfig := middleware.CORSConfig{
@@ -194,5 +195,57 @@ func addQuoteHandler(client *mongo.Client) echo.HandlerFunc {
 		quote.Id = quoteId.Hex()
 
 		return c.JSON(http.StatusCreated, quote)
+	}
+}
+
+func setQuotesHandler(client *mongo.Client) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		// make sure request is authorized
+		if c.Request().Header.Get(authorizationHeader) != os.Getenv("AUTHORIZATION_KEY") {
+			c.Logger().Warnf("Missing authorization key")
+			return c.NoContent(http.StatusUnauthorized)
+		}
+
+		// Decode body
+		var quotes []QuoteDto
+		if err := c.Bind(&quotes); err != nil {
+			c.Logger().Warnf("Error while decoding json body: %s", err)
+			return c.NoContent(http.StatusUnprocessableEntity)
+		}
+
+		// Acquire database collection + context
+		collection := client.Database("quotes").Collection("quotes")
+		ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+
+		// Delete old quotes
+		deletedRes, err := collection.DeleteMany(ctx, bson.M{})
+		if err != nil {
+			c.Logger().Errorf("Error while deleting previous quotes: %s", err)
+			return c.NoContent(http.StatusInternalServerError)
+		}
+
+		// Insert new quotes
+		quotesToCreate := make([]interface{}, len(quotes))
+		for i, quote := range quotes {
+			quotesToCreate[i] = QuoteEntity{
+				Id:     primitive.NewObjectID(),
+				Text:   quote.Text,
+				Source: quote.Source,
+			}
+		}
+		createdRes, err := collection.InsertMany(ctx, quotesToCreate)
+		if err != nil {
+			c.Logger().Errorf("Error while created new quotes: %s", err)
+			return c.NoContent(http.StatusInternalServerError)
+		}
+
+		c.Logger().Infof("%d quotes has been deleted", deletedRes.DeletedCount)
+		c.Logger().Infof("%d quotes has been created", len(quotesToCreate))
+
+		// Return list of created quotes with updated IDs
+		for i := range quotes {
+			quotes[i].Id = createdRes.InsertedIDs[i].(primitive.ObjectID).Hex()
+		}
+		return c.JSON(http.StatusCreated, quotes)
 	}
 }
