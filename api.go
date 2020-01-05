@@ -162,6 +162,18 @@ func addQuoteHandler(client *mongo.Client) echo.HandlerFunc {
 		collection := client.Database("quotes").Collection("quotes")
 		ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
 
+		// Make sure quote does not already exists
+		count, err := collection.CountDocuments(ctx, bson.M{"text": quote.Text})
+		if err != nil {
+			c.Logger().Errorf("Error while trying to determinate if quote already exists")
+			return c.NoContent(http.StatusInternalServerError)
+		}
+
+		if count > 0 {
+			c.Logger().Warnf("Discarding existing quote")
+			return c.NoContent(http.StatusConflict)
+		}
+
 		// Insert quote
 		res, err := collection.InsertOne(ctx, QuoteEntity{
 			Id:     primitive.NewObjectID(),
