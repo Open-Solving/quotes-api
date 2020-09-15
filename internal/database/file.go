@@ -2,13 +2,14 @@ package database
 
 import (
 	"encoding/json"
-	"fmt"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"io/ioutil"
 	"os"
 )
 
 type fileDatabase struct {
-	quotes []QuoteEntity
+	quotes   []QuoteEntity
+	filePath string
 }
 
 func (f *fileDatabase) GetQuotes(pagination Pagination) ([]QuoteEntity, error) {
@@ -49,11 +50,29 @@ func (f *fileDatabase) CountQuotes(text string) (int64, error) {
 }
 
 func (f *fileDatabase) AddQuote(quote QuoteEntity) (QuoteEntity, error) {
-	return QuoteEntity{}, fmt.Errorf("not implemented")
+	quote.Id = primitive.NewObjectID()
+
+	f.quotes = append(f.quotes, quote)
+
+	if err := f.synchronize(); err != nil {
+		return QuoteEntity{}, err
+	}
+
+	return quote, nil
 }
 
 func (f *fileDatabase) SetQuotes(quotes []QuoteEntity) ([]QuoteEntity, error) {
-	return nil, fmt.Errorf("not implemented")
+	for i, _ := range quotes {
+		quotes[i].Id = primitive.NewObjectID()
+	}
+
+	f.quotes = quotes
+
+	if err := f.synchronize(); err != nil {
+		return nil, err
+	}
+
+	return quotes, nil
 }
 
 func NewFileDatabase(dsn string) (Database, error) {
@@ -74,6 +93,16 @@ func NewFileDatabase(dsn string) (Database, error) {
 	}
 
 	return &fileDatabase{
-		quotes: quotes,
+		quotes:   quotes,
+		filePath: dsn,
 	}, nil
+}
+
+func (f *fileDatabase) synchronize() error {
+	b, err := json.Marshal(f.quotes)
+	if err != nil {
+		return err
+	}
+
+	return ioutil.WriteFile(f.filePath, b, 0640)
 }
