@@ -1,6 +1,7 @@
 package service
 
 import (
+	"fmt"
 	"github.com/creekorful/quotes-api/internal/database"
 	"github.com/labstack/echo"
 	"net/http"
@@ -28,6 +29,8 @@ func NewService(dsn string) (*Service, error) {
 }
 
 func (s *Service) GetQuotes(pagination database.Pagination) ([]QuoteDto, int64, error) {
+	fmt.Printf("Getting quotes with pagination %v\n", pagination)
+
 	quotes, err := s.conn.GetQuotes(pagination)
 	if err != nil {
 		return nil, -1, err
@@ -51,6 +54,8 @@ func (s *Service) GetQuotes(pagination database.Pagination) ([]QuoteDto, int64, 
 }
 
 func (s *Service) AddQuote(quoteDto QuoteDto) (QuoteDto, error) {
+	fmt.Printf("Adding quote %v\n", quoteDto)
+
 	// Make sure quote doesn't already exist
 	count, err := s.conn.CountQuotes(quoteDto.Text)
 	if err != nil {
@@ -77,6 +82,8 @@ func (s *Service) AddQuote(quoteDto QuoteDto) (QuoteDto, error) {
 }
 
 func (s *Service) SetQuotes(quotesDto []QuoteDto) ([]QuoteDto, error) {
+	fmt.Printf("Setting quotes %v\n", quotesDto)
+
 	var quotes []database.QuoteEntity
 
 	for _, quoteDto := range quotesDto {
