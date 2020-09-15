@@ -17,7 +17,7 @@ type Service struct {
 }
 
 func NewService(dsn string) (*Service, error) {
-	conn, err := database.NewMongoDatabase(dsn)
+	conn, err := database.GetDatabase(dsn)
 	if err != nil {
 		return nil, err
 	}

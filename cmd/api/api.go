@@ -7,7 +7,7 @@ import (
 )
 
 func main() {
-	a, err := api.NewAPI(os.Getenv("MONGO_URI"))
+	a, err := api.NewAPI(os.Getenv("DB_URI"))
 	if err != nil {
 		log.Fatalf("unable to start API: %s", err)
 	}
