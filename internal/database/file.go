@@ -20,9 +20,9 @@ func (f *fileDatabase) GetQuotes(pagination Pagination) ([]QuoteEntity, error) {
 	}
 
 	// clamp count if needed
-	count := pagination.Size
-	if startIndex+pagination.Size >= total {
-		count = total - startIndex
+	count := startIndex + pagination.Size
+	if count >= total {
+		count = total - 1
 	}
 
 	var quotes []QuoteEntity
