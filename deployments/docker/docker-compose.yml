@@ -12,13 +12,12 @@ services:
     environment:
       ME_CONFIG_MONGODB_SERVER: database
     ports:
-    - 15001:8081
+      - 15001:8081
   api:
-    build:
-      context: .
+    image: creekorful/quotes-api
     restart: unless-stopped
     environment:
       MONGO_URI: mongodb://database
       AUTHORIZATION_KEY: test
     ports:
-    - 15000:8080
+      - 15000:8080

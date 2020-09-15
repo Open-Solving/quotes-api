@@ -1,5 +1,5 @@
 # [build image]
-FROM golang:1.14-alpine as builder
+FROM golang:1.15-alpine as builder
 
 RUN apk update && apk upgrade && \
     apk add --no-cache bash git openssh
@@ -14,7 +14,7 @@ WORKDIR /app
 
 # build application
 COPY . .
-RUN go build -v *.go
+RUN go build -v cmd/api/api.go
 
 
 # [runtime image]
