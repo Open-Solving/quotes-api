@@ -5,6 +5,7 @@ import (
 	"github.com/creekorful/quotes-api/internal/service"
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
+	"github.com/labstack/gommon/log"
 	"net/http"
 	"os"
 	"strconv"
@@ -23,11 +24,12 @@ const (
 	authorizationHeader = "Authorization"
 )
 
-func NewAPI(dsn string) (*echo.Echo, error) {
+func NewAPI(dsn string, logLevel string) (*echo.Echo, error) {
 	e := echo.New()
+	e.Logger.SetLevel(parseLogLvl(logLevel))
 
 	// create the service
-	svc, err := service.NewService(dsn)
+	svc, err := service.NewService(dsn, e.Logger)
 	if err != nil {
 		return nil, err
 	}
@@ -36,6 +38,7 @@ func NewAPI(dsn string) (*echo.Echo, error) {
 	e.GET("/quotes", getQuotesHandler(svc))
 	e.POST("/quotes", addQuoteHandler(svc))
 	e.PUT("/quotes", setQuotesHandler(svc))
+	e.GET("/random-quote", getRandomQuoteHandler(svc))
 
 	// setup CORS
 	corsConfig := middleware.CORSConfig{
@@ -44,7 +47,10 @@ func NewAPI(dsn string) (*echo.Echo, error) {
 		AllowMethods:  []string{http.MethodGet},
 		ExposeHeaders: []string{paginationPageHeader, paginationSizeHeader, paginationCountHeader},
 	}
+
+	// register middlewares
 	e.Use(middleware.CORSWithConfig(corsConfig))
+	e.Use(middleware.Logger())
 
 	return e, nil
 }
@@ -86,6 +92,17 @@ func addQuoteHandler(s *service.Service) echo.HandlerFunc {
 		}
 
 		return c.JSON(http.StatusCreated, quote)
+	}
+}
+
+func getRandomQuoteHandler(s *service.Service) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		quoteDto, err := s.RandomQuote()
+		if err != nil {
+			return err
+		}
+
+		return c.JSON(http.StatusOK, quoteDto)
 	}
 }
 
@@ -136,4 +153,21 @@ func writePagination(c echo.Context, pagination database.Pagination, count int64
 	c.Response().Header().Set(paginationPageHeader, strconv.Itoa(pagination.Page))
 	c.Response().Header().Set(paginationSizeHeader, strconv.Itoa(pagination.Size))
 	c.Response().Header().Set(paginationCountHeader, strconv.FormatInt(count, 10))
+}
+
+func parseLogLvl(lvl string) log.Lvl {
+	switch lvl {
+	case "DEBUG":
+		return log.DEBUG
+	case "INFO":
+		return log.INFO
+	case "WARN":
+		return log.WARN
+	case "ERROR":
+		return log.ERROR
+	case "OFF":
+		return log.OFF
+	default:
+		return log.INFO
+	}
 }

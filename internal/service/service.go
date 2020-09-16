@@ -1,7 +1,6 @@
 package service
 
 import (
-	"fmt"
 	"github.com/creekorful/quotes-api/internal/database"
 	"github.com/labstack/echo"
 	"net/http"
@@ -15,9 +14,10 @@ type QuoteDto struct {
 
 type Service struct {
 	conn database.Database
+	logger echo.Logger
 }
 
-func NewService(dsn string) (*Service, error) {
+func NewService(dsn string, logger echo.Logger) (*Service, error) {
 	conn, err := database.GetDatabase(dsn)
 	if err != nil {
 		return nil, err
@@ -25,11 +25,12 @@ func NewService(dsn string) (*Service, error) {
 
 	return &Service{
 		conn: conn,
+		logger: logger,
 	}, nil
 }
 
 func (s *Service) GetQuotes(pagination database.Pagination) ([]QuoteDto, int64, error) {
-	fmt.Printf("Getting quotes with pagination %v\n", pagination)
+	s.logger.Debugf("Getting quotes with pagination %v\n", pagination)
 
 	quotes, err := s.conn.GetQuotes(pagination)
 	if err != nil {
@@ -54,7 +55,7 @@ func (s *Service) GetQuotes(pagination database.Pagination) ([]QuoteDto, int64, 
 }
 
 func (s *Service) AddQuote(quoteDto QuoteDto) (QuoteDto, error) {
-	fmt.Printf("Adding quote %v\n", quoteDto)
+	s.logger.Debugf("Adding quote %v\n", quoteDto)
 
 	// Make sure quote doesn't already exist
 	count, err := s.conn.CountQuotes(quoteDto.Text)
@@ -82,7 +83,7 @@ func (s *Service) AddQuote(quoteDto QuoteDto) (QuoteDto, error) {
 }
 
 func (s *Service) SetQuotes(quotesDto []QuoteDto) ([]QuoteDto, error) {
-	fmt.Printf("Setting quotes %v\n", quotesDto)
+	s.logger.Debugf("Setting quotes %v\n", quotesDto)
 
 	var quotes []database.QuoteEntity
 
@@ -108,4 +109,19 @@ func (s *Service) SetQuotes(quotesDto []QuoteDto) ([]QuoteDto, error) {
 	}
 
 	return ret, nil
+}
+
+func (s *Service) RandomQuote() (QuoteDto, error) {
+	s.logger.Debugf("Getting random quote")
+
+	quote, err := s.conn.RandomQuote()
+	if err != nil {
+		return QuoteDto{}, err
+	}
+
+	return QuoteDto{
+		Id:     quote.Id.Hex(),
+		Text:   quote.Text,
+		Source: quote.Source,
+	}, nil
 }

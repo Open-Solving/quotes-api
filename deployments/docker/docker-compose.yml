@@ -17,7 +17,8 @@ services:
     image: creekorful/quotes-api
     restart: unless-stopped
     environment:
-      MONGO_URI: mongodb://database
+      DB_URI: mongodb://database
+      LOG_LVL: DEBUG
       AUTHORIZATION_KEY: test
     ports:
       - 15000:8080

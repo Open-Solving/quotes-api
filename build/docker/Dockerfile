@@ -4,17 +4,19 @@ FROM golang:1.15-alpine as builder
 RUN apk update && apk upgrade && \
     apk add --no-cache bash git openssh
 
-# gco is needed to compile echo or one of echo dependencies
-ENV CGO_ENABLED=1
-
 # therefore a c compiler is needed on build image
 RUN apk add --no-cache gcc libc-dev
 
 WORKDIR /app
 
+# fetch dependencies
+COPY go.mod .
+COPY go.sum .
+RUN go mod download
+
 # build application
 COPY . .
-RUN go build -v cmd/api/api.go
+RUN CGO_ENABLED=1 go build -v cmd/api/api.go
 
 
 # [runtime image]

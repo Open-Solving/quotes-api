@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"io/ioutil"
+	"math/rand"
 	"os"
 )
 
@@ -73,6 +74,17 @@ func (f *fileDatabase) SetQuotes(quotes []QuoteEntity) ([]QuoteEntity, error) {
 	}
 
 	return quotes, nil
+}
+
+func (f *fileDatabase) RandomQuote() (QuoteEntity, error) {
+	count := len(f.quotes)
+
+	if count == 0 {
+		return QuoteEntity{}, ErrQuoteNotFound
+	}
+
+	index := rand.Intn(count)
+	return f.quotes[index], nil
 }
 
 func NewFileDatabase(dsn string) (Database, error) {
